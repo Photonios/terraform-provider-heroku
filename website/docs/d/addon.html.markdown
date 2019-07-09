@@ -25,7 +25,7 @@ output "heroku_addon_data_basic" {
     "app: ${data.heroku_addon.from_another_app.app}",
     "plan: ${data.heroku_addon.from_another_app.plan}",
     "provider_id: ${data.heroku_addon.from_another_app.provider_id}",
-    "config_vars: ${join(", ", data.heroku_addon.from_another_app.config_vars)}",
+    "config_vars: ${transpose(data.heroku_addon.from_another_app.config_vars)}",
   ]
 }
 ```

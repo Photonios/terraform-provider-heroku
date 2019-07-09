@@ -63,11 +63,8 @@ func resourceHerokuAddon() *schema.Resource {
 			},
 
 			"config_vars": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeMap,
 				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
 		},
 	}
@@ -121,7 +118,7 @@ func resourceHerokuAddonCreate(d *schema.ResourceData, meta interface{}) error {
 func resourceHerokuAddonRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Config).Api
 
-	addon, err := resourceHerokuAddonRetrieve(d.Id(), client)
+	addon, addonConfig, err := resourceHerokuAddonRetrieve(d.Id(), client)
 	if err != nil {
 		return err
 	}
@@ -139,13 +136,16 @@ func resourceHerokuAddonRead(d *schema.ResourceData, meta interface{}) error {
 		}
 	}
 
+	configVars := make(map[string]string)
+	for _, configVar := range addonConfig {
+		configVars[configVar.Name] = *configVar.Value
+	}
+
 	d.Set("name", addon.Name)
 	d.Set("app", addon.App.Name)
 	d.Set("plan", plan)
 	d.Set("provider_id", addon.ProviderID)
-	if err := d.Set("config_vars", addon.ConfigVars); err != nil {
-		return err
-	}
+	d.Set("config_vars", configVars)
 
 	return nil
 }
@@ -198,31 +198,41 @@ func resourceHerokuAddonExists(d *schema.ResourceData, meta interface{}) (bool, 
 	return true, nil
 }
 
-func resourceHerokuAddonRetrieve(id string, client *heroku.Service) (*heroku.AddOn, error) {
+func resourceHerokuAddonRetrieve(id string, client *heroku.Service) (*heroku.AddOn, heroku.AddOnConfigListResult, error) {
 	addon, err := client.AddOnInfo(context.TODO(), id)
-
 	if err != nil {
-		return nil, fmt.Errorf("Error retrieving addon: %s", err)
+		return nil, nil, fmt.Errorf("Error retrieving addon: %s", err)
 	}
 
-	return addon, nil
+	listRange := &heroku.ListRange{Descending: true}
+	addonConfig, err := client.AddOnConfigList(context.TODO(), id, listRange)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error retrieving addon config: %s", err)
+	}
+
+	return addon, addonConfig, nil
 }
 
-func resourceHerokuAddonRetrieveByApp(app string, id string, client *heroku.Service) (*heroku.AddOn, error) {
+func resourceHerokuAddonRetrieveByApp(app string, id string, client *heroku.Service) (*heroku.AddOn, heroku.AddOnConfigListResult, error) {
 	addon, err := client.AddOnInfoByApp(context.TODO(), app, id)
-
 	if err != nil {
-		return nil, fmt.Errorf("Error retrieving addon: %s", err)
+		return nil, nil, fmt.Errorf("Error retrieving addon: %s", err)
 	}
 
-	return addon, nil
+	listRange := &heroku.ListRange{Descending: true}
+	addonConfig, err := client.AddOnConfigList(context.TODO(), id, listRange)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error retrieving addon config: %s", err)
+	}
+
+	return addon, addonConfig, nil
 }
 
 // AddOnStateRefreshFunc returns a resource.StateRefreshFunc that is used to
 // watch an AddOn.
 func AddOnStateRefreshFunc(client *heroku.Service, appID, addOnID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		addon, err := resourceHerokuAddonRetrieveByApp(appID, addOnID, client)
+		addon, _, err := resourceHerokuAddonRetrieveByApp(appID, addOnID, client)
 
 		if err != nil {
 			return nil, "", err

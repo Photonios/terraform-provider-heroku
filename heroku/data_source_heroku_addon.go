@@ -34,11 +34,8 @@ func dataSourceHerokuAddon() *schema.Resource {
 			},
 
 			"config_vars": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeMap,
 				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
 		},
 	}
@@ -49,9 +46,14 @@ func dataSourceHerokuAddonRead(d *schema.ResourceData, m interface{}) error {
 
 	name := d.Get("name").(string)
 
-	addon, err := resourceHerokuAddonRetrieve(name, client)
+	addon, addonConfig, err := resourceHerokuAddonRetrieve(name, client)
 	if err != nil {
 		return err
+	}
+
+	configVars := make(map[string]string)
+	for _, configVar := range addonConfig {
+		configVars[configVar.Name] = *configVar.Value
 	}
 
 	d.SetId(addon.ID)
@@ -59,7 +61,7 @@ func dataSourceHerokuAddonRead(d *schema.ResourceData, m interface{}) error {
 	d.Set("app", addon.App.Name)
 	d.Set("plan", addon.Plan.Name)
 	d.Set("provider_id", addon.ProviderID)
-	d.Set("config_vars", addon.ConfigVars)
+	d.Set("config_vars", configVars)
 
 	return nil
 }
