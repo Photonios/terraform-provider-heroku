@@ -91,6 +91,7 @@ func Provider() terraform.ResourceProvider {
 
 		DataSourcesMap: map[string]*schema.Resource{
 			"heroku_addon":              dataSourceHerokuAddon(),
+			"heroku_addon_config":       dataSourceHerokuAddonConfig(),
 			"heroku_app":                dataSourceHerokuApp(),
 			"heroku_space":              dataSourceHerokuSpace(),
 			"heroku_space_peering_info": dataSourceHerokuSpacePeeringInfo(),
